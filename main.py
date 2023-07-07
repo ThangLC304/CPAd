@@ -1,4 +1,5 @@
 import tkinter as tk
+from tkinter import ttk
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 
 import os
@@ -6,6 +7,9 @@ from pathlib import Path
 from colorlog import ColoredFormatter
 
 from Libs.analyzer import Analyzer
+from Libs.reader import Reader
+from Libs.utils import draw_peaks
+from Libs.customwidgets import ProgressWindow
 from Libs import ENTRY_NAMES, ENTRY_NAMES_SET1, ENTRY_NAMES_SET2, DEFAULT_VALUES
 
 ###################################################### SETUP LOGGING ######################################################
@@ -115,16 +119,43 @@ class Application(tk.Tk):
     def reset_entries(self):
         self.entries = {name : None for name in ENTRY_NAMES}
         if self.files_widgets != {}:
-            for widget in self.files_widgets.values():
-                widget.destroy()
+            for obj in self.files_widgets.values():
+                if isinstance(obj, dict):
+                    for widget in obj.values():
+                        widget.destroy()
+                else:
+                    obj.destroy()
         self.files_widgets = {}
 
+
+    def post_open_check(self):
+        if len(self.selected_files) == 0:
+            logger.warning('No files selected')
+            return False
+        
+        temp_reader = Reader(self.selected_files)
+        if temp_reader.DUPLICATION == False:
+            logger.info("No duplication found")
+            return True
+        else:
+            message = 'Both unfiltered and filtered version of the same file(s) were found'
+            message += '\nPress Yes if you want to load only the Filtered version'
+            message += '\nPress No if you want to load both versions'
+            choice = tk.messagebox.askyesno('Duplicates found', message)
+            if choice:
+                self.selected_files = list(temp_reader.file_paths_dict.values())
+                logger.info("Load only filtered version of the file(s)")
+            return True                
 
     def open_files(self):
         self.selected_files = filedialog.askopenfilenames()
         for widget in self.mid_frame.winfo_children():
             widget.destroy() 
 
+        NO_ERROR = self.post_open_check()
+
+        if not NO_ERROR:
+            return          
 
         self.reset_entries()
         self.find_tolerance_button.config(state=tk.NORMAL)
@@ -155,6 +186,7 @@ class Application(tk.Tk):
 
             for file in self.selected_files:
                 file_name = Path(file).name
+                self.files_widgets[file_name] = {}
                 self.files_widgets[file_name]['row'] = tk.Frame(mid_frame_bottom)
                 self.files_widgets[file_name]['label'] = tk.Label(self.files_widgets[file_name]['row'], text=file_name, width=20)
                 self.files_widgets[file_name]['row'].pack(side=tk.TOP, fill=tk.X, padx=5, pady=5)
@@ -174,7 +206,12 @@ class Application(tk.Tk):
         for param_name, entry in entry_dict.items():
             if entry == None:
                 continue
-            if entry.get() == '' and param_name in list(DEFAULT_VALUES.keys()):
+            try:
+                entry_value = float(entry.get())
+            except:
+                continue
+
+            if entry_value == '' and param_name in list(DEFAULT_VALUES.keys()):
                 NULL_LIST.append(param_name)
         
         if NULL_LIST:
@@ -212,6 +249,7 @@ class Application(tk.Tk):
 
         else:
             for file in self.selected_files:
+                logger.debug(f"Finding tolerance for {file}")
                 file_name = Path(file).name
 
                 if not self.entries_checker(self.files_widgets[file_name]):
@@ -253,12 +291,27 @@ class Application(tk.Tk):
                 param_entry.insert(0, self.files_widgets[first_file_name][param_name].get())
 
 
+    def get_entry_from_entryname(self, entry_name, file_name=None):
+        if file_name == None:
+            try:
+                given_entry = self.entries[entry_name]
+            except:
+                given_entry = None
+        else:
+            try:
+                given_entry = self.files_widgets[file_name][entry_name]
+            except:
+                given_entry = None
+
+        return given_entry
+
     
     def get_current_entry_value(self, entry_name, file_name=None):
-        if file_name == None:
-            given_entry = self.entries[entry_name]
-        else:
-            given_entry = self.files_widgets[file_name][entry_name]
+        given_entry = self.get_entry_from_entryname(entry_name, file_name=file_name)
+
+        if given_entry == None:
+            logger.debug(f"Entry {entry_name} not found, returning value = None")
+            return None
 
         try:
             current_value = given_entry.get()
@@ -301,37 +354,65 @@ class Application(tk.Tk):
             
             return PARAMS
 
+    def create_progress_bar(self):
+        self.progress_bar = ttk.Progressbar(self.bottom_frame, orient=tk.HORIZONTAL, length=100, mode='determinate')
+        self.progress_bar.pack(side=tk.LEFT, padx=5, pady=5)
+
+
+
     
-    def analyze(self):
+    def analyze(self):  
         PARAMS = self.get_all_params()
+
+        PROGRESS_WINDOW = ProgressWindow(self)
 
         if len(self.selected_files) == 1:
             analyzer = Analyzer(self.selected_files[0], PARAMS)
-
+            self.core_name = analyzer.core_name
             analyzer.df_Loader()
-            analyzer.Peak_Finder()
-            analyzer.SD_Calculator()
-            analyzer.SD_Summary_Update()
+            self.values_for_draw = analyzer.Peak_Finder()
+            analyzer.EndPoints_Calculator()
+            analyzer.EndPoints_Updater()
 
             tk.messagebox.showinfo(title='Success', message=f'Analysis of {Path(self.selected_files[0]).name} is done!')
 
+            # Change text of self.display_button to 'Display & Save Peaks'
+            self.display_button.config(text='Display Peaks')
+            self.display_button.config(state=tk.NORMAL)
+
         else:
-            for file in self.selected_files:
+            for i, file in enumerate(self.selected_files):
                 file_name = Path(file).name
                 analyzer = Analyzer(file, PARAMS[file_name])
-
                 analyzer.df_Loader()
                 analyzer.Peak_Finder()
-                analyzer.SD_Calculator()
-                analyzer.SD_Summary_Update()
+                analyzer.EndPoints_Calculator()
+                analyzer.EndPoints_Updater()
+                analyzer.SavePeaks()
+
+                progress = int((i+1)/len(self.selected_files)*100)
+                PROGRESS_WINDOW.update_progress(progress)
 
             tk.messagebox.showinfo(title='Success', message=f'Batch analysis of {len(self.selected_files)} files is done!')
 
-        self.display_button.config(state=tk.NORMAL)
+            # Change text of self.display_button to 'Save Peaks'
+            self.display_button.config(text='Save Peaks')
+
 
 
     def displaypeaks(self):
-        pass
+        
+        draw_peaks(master=self, 
+                   given_name=self.core_name, 
+                   given_values=self.values_for_draw, 
+                   mode="display")
+        
+        logger.debug(f"Displaying peaks of {self.core_name} is done!")
+
+        draw_peaks(master=self, 
+                   given_name=self.core_name, 
+                   given_values=self.values_for_draw, 
+                   mode="save")
 
 
 

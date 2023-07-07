@@ -4,7 +4,14 @@ import numpy as np
 import openpyxl
 import os
 
+from pathlib import Path
+
+import tkinter as tk
+
 from matplotlib.figure import Figure
+from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
+
+from . import PEAKS_IMG_PATH
 
 
 logger = logging.getLogger(__name__)
@@ -195,5 +202,44 @@ def draw_plot(xvalues, yvalues, maxima, minima):
     plot1.legend()
 
     return fig
+
+
+
+def draw_peaks(master, given_name, given_values, mode="display"):
+
+    assert mode in ["display", "save"]
+
+    xvalues, yvalues, maxima, minima = given_values
+
+    figure = draw_plot(xvalues, yvalues, maxima, minima)
+
+    def save_pictures(figure):
+        output_path = os.path.join(PEAKS_IMG_PATH, given_name)
+        Path(output_path).parent.mkdir(parents=True, exist_ok=True)
+        if os.path.exists(output_path):
+            logger.info(f"{output_path} already exists, skip saving")
+            return
+        figure.savefig(output_path, dpi=300)
+        logger.info(f"Saved peaks plot to {output_path}")
+
+    if mode=="display":
+        # Make a top level window
+        TOP = tk.Toplevel(master)
+        TOP.title("Peaks")
+        TOP.geometry("800x400")
+
+        # Make a canvas
+        CANVAS = FigureCanvasTkAgg(figure, master=TOP)
+        CANVAS.draw()
+        CANVAS.get_tk_widget().pack(side=tk.TOP, fill=tk.BOTH, expand=1)
+
+        # make a button on top right corner to save the figure
+        BTN_save_figure = tk.Button(TOP, text="Save", command=lambda: save_pictures(figure))
+        BTN_save_figure.pack(side=tk.RIGHT)
+
+    if mode=="save":
+        save_pictures(figure)
+
+    
 
 

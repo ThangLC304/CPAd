@@ -26,10 +26,16 @@ class Reader():
 
         self.file_paths = [Path(given_path) for given_path in given_paths]
 
-        self.file_paths_dict = self.NameModifier()
+        self.file_paths_dict, self.DUPLICATION = self.NameModifier()
+        logger.debug(f"file_paths_dict: {self.file_paths_dict}")
 
-        self.dfs_dict = {core_name : self.DataCleaner(file_path) for core_name, file_path in self.file_paths_dict.items()}
-    
+        # self.dfs_dict = {core_name : self.DataCleaner(file_path) for core_name, file_path in self.file_paths_dict.items()}
+
+
+    def get_dfs_dict(self):
+        dfs_dict = {core_name : self.DataCleaner(file_path) for core_name, file_path in self.file_paths_dict.items()}
+        return dfs_dict
+            
     def NameModifier(self):
         """
         Filter the files in the given directory
@@ -46,7 +52,7 @@ class Reader():
 
             if "DLC" in given_file.stem:
                 core = given_file.stem.split("DLC")[0]
-                core = " ".join(core.split(" ")[1:])
+                core = " ".join(core.split(" ")[-2:])
             else:
                 core = given_file.stem
 
@@ -62,13 +68,25 @@ class Reader():
             core, status = get_core(file)
             statuses[status][core] = file
 
-        for core, file in statuses["raw"].items():
-            if core not in statuses["filtered"]:
-                ultilize_files[core] = file
-            else:
-                ultilize_files[core] = statuses["filtered"][core]
+        logger.debug(f"Current statuses: {statuses}")
 
-        return ultilize_files
+        common_cores = set(statuses["raw"].keys()).intersection(set(statuses["filtered"].keys()))
+
+        only_raw_cores = set(statuses["raw"].keys()).difference(set(statuses["filtered"].keys()))
+        logger.debug(f"only_raw_cores: {only_raw_cores}")
+
+        for core in only_raw_cores:
+            ultilize_files[core] = statuses["raw"][core]
+
+        for core, file in statuses["filtered"].items():
+            ultilize_files[core] = file
+
+        if common_cores:
+            DUPLICATION = True
+        else:
+            DUPLICATION = False
+
+        return ultilize_files, DUPLICATION
     
 
     def DataCleaner(self, given_path, sheet_name=None):
