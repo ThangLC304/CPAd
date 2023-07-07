@@ -8,7 +8,7 @@ from colorlog import ColoredFormatter
 
 from Libs.analyzer import Analyzer
 from Libs.reader import Reader
-from Libs.utils import draw_peaks
+from Libs.utils import draw_peaks, get_core
 from Libs.customwidgets import ProgressWindow
 from Libs import ENTRY_NAMES, ENTRY_NAMES_SET1, ENTRY_NAMES_SET2, DEFAULT_VALUES
 
@@ -60,6 +60,18 @@ stream_handler.setLevel(logging.DEBUG)
 # Add the handlers to the logger
 logger.addHandler(file_handler)
 logger.addHandler(stream_handler)
+
+#################################################### SETUP DIRECTORIES ###################################################
+
+from Libs import OUTPUT_DIR
+
+logger.debug(f"Checking if {OUTPUT_DIR} exists")
+OUTPUT_DIR = Path(OUTPUT_DIR)
+if not OUTPUT_DIR.exists():
+    logger.debug(f"{OUTPUT_DIR} does not exist, creating it")
+    OUTPUT_DIR.mkdir()
+else:
+    logger.debug(f"{OUTPUT_DIR} exists")
 
 #################################################### MAIN APPLICATION ####################################################
 
@@ -134,6 +146,7 @@ class Application(tk.Tk):
             return False
         
         temp_reader = Reader(self.selected_files)
+
         if temp_reader.DUPLICATION == False:
             logger.info("No duplication found")
             return True
@@ -184,8 +197,14 @@ class Application(tk.Tk):
                                            command=self.copy_params_from_first_row)
             copy_params_button.pack()
 
+            header_row = tk.Frame(mid_frame_top)
+            header_row.pack(side=tk.TOP, fill=tk.X, padx=5, pady=5)
+
             for file in self.selected_files:
                 file_name = Path(file).name
+                # file_core, status = get_core(file_name)
+                # if status == "filtered":
+                #     file_display
                 self.files_widgets[file_name] = {}
                 self.files_widgets[file_name]['row'] = tk.Frame(mid_frame_bottom)
                 self.files_widgets[file_name]['label'] = tk.Label(self.files_widgets[file_name]['row'], text=file_name, width=20)

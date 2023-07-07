@@ -12,6 +12,8 @@ class Analyzer:
         self.given_path = given_path
         self.PARAMS = PARAMS
 
+        self.DEFAULT_GET_TOLERANCE_MODE = False
+
         reader = Reader(given_paths = [given_path])
 
         dfs_dict = reader.get_dfs_dict()
@@ -31,7 +33,8 @@ class Analyzer:
             logger.info(f"Tolerance found in PARAMS, using value {self.tolerance}")
         except KeyError:
             self.tolerance = 0.1
-            logger.warning("Tolerance not found in PARAMS, using default value 0.1")
+            logger.info("Tolerance not found in PARAMS, probably the first time running, setting df_loader's default get_tolerance to True")
+            self.DEFAULT_GET_TOLERANCE_MODE = True
 
         logger.debug(f"PARAMS: {PARAMS}")
 
@@ -52,7 +55,10 @@ class Analyzer:
         return cleaned_df
     
 
-    def df_Loader(self, get_tolerance=False):
+    def df_Loader(self, get_tolerance=None):
+
+        if get_tolerance is None:
+            get_tolerance = self.DEFAULT_GET_TOLERANCE_MODE
 
         cleaned_df = self.cleaned_df
 
@@ -263,9 +269,15 @@ class Analyzer:
 
     def SavePeaks(self):
 
-        draw_peaks(master=None, 
-                   given_name=self.core_name, 
-                   given_values=self.values_for_draw, 
-                   mode="save")
+        try:
+            draw_peaks(master=None, 
+                    given_name=self.core_name, 
+                    given_values=self.values_for_draw, 
+                    mode="save")
+        except Exception as e:
+            logger.debug(f"Core name: {self.core_name}")
+            logger.debug(f"Given path: {self.given_path}")
+            logger.error("Error saving peaks")
+            raise e            
         
         logger.info("Peaks saved")

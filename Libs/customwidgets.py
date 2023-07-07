@@ -1,6 +1,8 @@
 import tkinter
 from tkinter import ttk
 
+from . import MUST_FILL
+
 class ProgressWindow(tkinter.Toplevel):
         
     def __init__(self, master, title="Analysis Progress", geometry="300x100"):
@@ -19,3 +21,10 @@ class ProgressWindow(tkinter.Toplevel):
         self.total_label["text"] = text
         self.total["value"] = value
         self.update()
+
+
+class HeaderRow():
+
+    def __init__(self, master):
+
+        self.ALL_HEADERS = ["File path"]

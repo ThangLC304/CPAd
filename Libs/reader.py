@@ -4,6 +4,8 @@ import numpy as np
 
 from pathlib import Path
 
+from Libs.utils import get_core
+
 
 import logging
 
@@ -43,21 +45,6 @@ class Reader():
         If there were both raw version and _filtered version, the _filtered version would be used
         """
 
-        def get_core(given_file):
-
-            status = "raw"
-
-            if "_filtered" in given_file.stem:
-                status = "filtered"
-
-            if "DLC" in given_file.stem:
-                core = given_file.stem.split("DLC")[0]
-                core = " ".join(core.split(" ")[-2:])
-            else:
-                core = given_file.stem
-
-            return core, status
-
         statuses = {}
         statuses["raw"] = {}
         statuses["filtered"] = {}
@@ -79,7 +66,7 @@ class Reader():
             ultilize_files[core] = statuses["raw"][core]
 
         for core, file in statuses["filtered"].items():
-            ultilize_files[core] = file
+            ultilize_files[f"{core}_filtered"] = file
 
         if common_cores:
             DUPLICATION = True

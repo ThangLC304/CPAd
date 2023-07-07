@@ -203,6 +203,29 @@ def draw_plot(xvalues, yvalues, maxima, minima):
 
     return fig
 
+def get_core(given_file):
+
+    status = "raw"
+
+    if "_filtered" in given_file.stem:
+        status = "filtered"
+
+    if "DLC" in given_file.stem:
+        core = given_file.stem.split("DLC")[0]
+        core = " ".join(core.split(" ")[-2:])
+    else:
+        core = given_file.stem
+        status = "filtered"
+
+    return core, status
+
+
+def key_value_swap(given_dict):
+    # check if all values are unique
+    if not len(given_dict.values()) == len(set(given_dict.values())):
+        raise ValueError("Values are not unique, can't swap keys and values")
+
+    return {v: k for k, v in given_dict.items()}
 
 
 def draw_peaks(master, given_name, given_values, mode="display"):
@@ -214,7 +237,7 @@ def draw_peaks(master, given_name, given_values, mode="display"):
     figure = draw_plot(xvalues, yvalues, maxima, minima)
 
     def save_pictures(figure):
-        output_path = os.path.join(PEAKS_IMG_PATH, given_name)
+        output_path = os.path.join(PEAKS_IMG_PATH, f"{given_name}.png")
         Path(output_path).parent.mkdir(parents=True, exist_ok=True)
         if os.path.exists(output_path):
             logger.info(f"{output_path} already exists, skip saving")
@@ -239,6 +262,11 @@ def draw_peaks(master, given_name, given_values, mode="display"):
 
     if mode=="save":
         save_pictures(figure)
+
+
+def excel_polisher(input_excel_path):
+
+    pass
 
     
 
